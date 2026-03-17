@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Python程序设计章节测试系统</title>
+    <style>
+        *{box-sizing:border-box;font-family:微软雅黑;margin:0;padding:0;}
+        body{background:#f5f7fa;padding:20px;}
+        .container{max-width:1000px;margin:0 auto;background:white;padding:30px;border-radius:12px;box-shadow:0 0 10px #0000001a;}
+        .title{text-align:center;color:#2c3e50;margin-bottom:20px;}
+        .login-box,.chapter-box,.exam-box,.score-box,.teacher-box{display:none;margin-bottom:20px;}
+        .active{display:block;}
+        .form-item{margin:12px 0;}
+        label{display:inline-block;width:100px;font-weight:bold;}
+        input,select{padding:8px;width:280px;border:1px solid #ccc;border-radius:4px;}
+        button{padding:10px 20px;background:#2d8cf0;color:white;border:none;border-radius:4px;cursor:pointer;margin:5px;}
+        button:hover{background:#1b76d1;}
+        .question{margin:16px 0;padding:12px;background:#f8f9fa;border-radius:6px;}
+        .options{margin-left:20px;}
+        .option{margin:6px 0;}
+        .result{color:green;font-weight:bold;margin-top:20px;}
+        .error{color:red;}
+        .score-item{padding:8px;border-bottom:1px solid #eee;}
+        .nav{margin-bottom:20px;}
+        /* 新增：优化选项排版，避免换行导致的视觉问题 */
+        .option label{width:auto;font-weight:normal;}
+        .question p{margin-bottom:8px;}
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1 class="title">Python程序设计在线测试系统</h1>
+
+    <!-- 登录 -->
+    <div id="login" class="login-box active">
+        <h2>                                  考生登录</h2>
+        <div class="form-item">
+            <label>姓名：</label><input type="text" id="name" required>
+        </div>
+        <div class="form-item">
+            <label>学号：</label><input type="text" id="sid" required>
+        </div>
+        <div class="form-item">
+            <label>班级：</label><input type="text" id="cls" required>
+        </div>
+        <button onclick="login()">进入考试</button>
+        <button onclick="showTeacher()">教师查询</button>
+    </div>
+
+    <!-- 选章节 -->
+    <div id="chapter" class="chapter-box">
+        <h2>选择测试章节</h2>
+        <select id="chap"></select>
+        <button onclick="startExam()">开始答题</button>
+        <button onclick="logout()">返回登录</button>
+    </div>
+
+    <!-- 试卷 -->
+    <div id="exam" class="exam-box">
+        <div class="nav">
+            <span id="user-info"></span>
+            <button onclick="logout()">退出登录</button>
+        </div>
+        <div id="paper"></div>
+        <button onclick="submitExam()">交卷批阅</button>
+        <div class="result" id="result"></div>
+    </div>
+
+    <!-- 教师查询 -->
+    <div id="teacher" class="teacher-box">
+        <h2>教师成绩查询</h2>
+        <div class="form-item">
+            <label>按姓名查询：</label><input type="text" id="qName">
+            <button onclick="queryByName()">查询</button>
+        </div>
+        <div class="form-item">
+            <label>按班级查询：</label><input type="text" id="qCls">
+            <button onclick="queryByClass()">查询</button>
+        </div>
+        <div id="queryResult"></div>
+        <button onclick="backLogin()">返回登录</button>
+    </div>
+</div>
+
+<script>
+// ====================== 题库（12章，每章5单选+5填空+2编程）======================
+const examData = {
+    "第1章 认识Python": {
+        single: [
+            { q: "Python官方推荐初学者使用的版本是？", opt: ["Python2","Python3","均可","无"], a: "B" },
+            { q: "IDLE是Python的？", opt: ["编译器","解释器","集成开发环境","数据库"], a: "C" },
+            { q: "print('Hello World')执行效果是？", opt: ["计算","输出文本","输入","报错"], a: "B" },
+            { q: "Python中乘法符号是？", opt: ["×","*","/","**"], a: "B" },
+            { q: "Python文件扩展名是？", opt: [".java",".py",".c",".txt"], a: "B" }
+        ],
+        blank: [
+            { q: "Python中输出函数是______", a: "print" },
+            { q: "交互模式提示符是______", a: ">>>" },
+            { q: "Python3与Python2______兼容", a: "不" },
+            { q: "乘方运算符是______", a: "**" },
+            { q: "注释符号是______", a: "#" }
+        ],
+        code: [
+            { q: "编程输出：欢迎来到Python世界", a: "print('欢迎来到Python世界')" },
+            { q: "计算 39÷2.8+59.6 并输出", a: "print(39/2.8+59.6)" }
+        ]
+    },
+    "第2章 Python数据类型": {
+        single: [
+            { q: "下列属于不可变序列的是", opt: ["列表","字符串","字典","集合"], a: "B" },
+            { q: "列表的定界符是", opt: ["()","[]","{}","<>"], a: "B" },
+            { q: "dict表示", opt: ["列表","元组","字典","字符串"], a: "C" },
+            { q: "10%3 结果是", opt: ["1","2","3","0"], a: "A" },
+            { q: "判断元素是否在列表中用", opt: ["in","is","and","or"], a: "A" }
+        ],
+        blank: [
+            { q: "元组定界符是______", a: "()" },
+            { q: "字典元素是______:值", a: "键" },
+            { q: "字符串定界符是______", a: "引号" },
+            { q: "len()返回______", a: "长度" },
+            { q: "切片格式[起始:结束:______]", a: "步长" }
+        ],
+        code: [
+            { q: "创建列表 [1,2,3] 并输出", a: "a=[1,2,3];print(a)" },
+            { q: "判断 3 是否在列表 [1,2,3] 中", a: "print(3 in [1,2,3])" }
+        ]
+    },
+    "第3章 程序结构": {
+        single: [
+            { q: "if 属于", opt: ["顺序","分支","循环","函数"], a: "B" },
+            { q: "for 属于", opt: ["顺序","分支","循环","异常"], a: "C" },
+            { q: "break作用是", opt: ["结束本次循环","结束整个循环","跳过","暂停"], a: "B" },
+            { q: "continue作用是", opt: ["结束本次循环","结束整个循环","退出","重启"], a: "A" },
+            { q: "input()返回类型是", opt: ["int","float","str","bool"], a: "C" }
+        ],
+        blank: [
+            { q: "分支语句关键字______", a: "if" },
+            { q: "循环遍历序列用______", a: "for" },
+            { q: "条件为真用______", a: "True" },
+            { q: "range(5)生成______个数", a: "5" },
+            { q: "else在循环正常结束______执行", a: "会" }
+        ],
+        code: [
+            { q: "输入成绩，>=60输出及格", a: "s=float(input());print('及格'if s>=60 else '不及格')" },
+            { q: "求1+2+…+100", a: "print(sum(range(101)))" }
+        ]
+    },
+    "第4章 文件操作": {
+        single: [
+            { q: "打开文件用函数", opt: ["open","read","write","close"], a: "A" },
+            { q: "模式'w'表示", opt: ["只读","写入","追加","二进制"], a: "B" },
+            { q: "关闭文件用", opt: ["stop","end","close","exit"], a: "C" },
+            { q: "read()作用是", opt: ["读一行","读全部","写文件","删文件"], a: "B" },
+            { q: "CSV文件分隔符常用", opt: ["逗号","空格","冒号","分号"], a: "A" }
+        ],
+        blank: [
+            { q: "文件分为文本和______", a: "二进制" },
+            { q: "追加模式是______", a: "a" },
+            { q: "with语句会自动______文件", a: "关闭" },
+            { q: "readline()读______", a: "一行" },
+            { q: "os模块用于______操作", a: "文件系统" }
+        ],
+        code: [
+            { q: "打开test.txt写入hello", a: "with open('test.txt','w')as f:f.write('hello')" },
+            { q: "读取test.txt并输出", a: "with open('test.txt')as f:print(f.read())" }
+        ]
+    },
+    "第5章 函数": {
+        single: [
+            { q: "定义函数用关键字", opt: ["def","func","fun","define"], a: "A" },
+            { q: "return作用是", opt: ["结束函数","返回值","两者都是","都不是"], a: "C" },
+            { q: "lambda是", opt: ["普通函数","匿名函数","类","模块"], a: "B" },
+            { q: "函数外变量是", opt: ["局部","全局","静态","私有"], a: "B" },
+            { q: "调用函数用", opt: ["函数名()","import","class","def"], a: "A" }
+        ],
+        blank: [
+            { q: "函数参数叫______参", a: "形" },
+            { q: "调用参数叫______参", a: "实" },
+            { q: "函数内变量是______", a: "局部" },
+            { q: "递归是函数调用______", a: "自身" },
+            { q: "默认参数放在______参数后", a: "位置" }
+        ],
+        code: [
+            { q: "定义函数求两数之和", a: "def add(a,b):return a+b" },
+            { q: "调用函数add(3,5)输出", a: "print(add(3,5))" }
+        ]
+    },
+    "第6章 模块与包": {
+        single: [
+            { q: "导入模块用", opt: ["import","include","require","using"], a: "A" },
+            { q: "包必须包含文件", opt: ["__init__.py","main.py","index.py","__main__.py"], a: "A" },
+            { q: "math.pi是", opt: ["自然数","圆周率","对数","随机数"], a: "B" },
+            { q: "random.randint(a,b)生成", opt: ["浮点数","整数","字符串","列表"], a: "B" },
+            { q: "sys.path是", opt: ["模块路径","系统时间","内存大小","CPU信息"], a: "A" }
+        ],
+        blank: [
+            { q: "模块是______文件", a: ".py" },
+            { q: "from 模块 import * 导入______", a: "全部" },
+            { q: "time.time()返回______", a: "时间戳" },
+            { q: "datetime处理______", a: "日期时间" },
+            { q: "urllib用于______", a: "网络" }
+        ],
+        code: [
+            { q: "导入math并输出pi", a: "import math;print(math.pi)" },
+            { q: "导入random生成1-10随机数", a: "import random;print(random.randint(1,10))" }
+        ]
+    },
+    "第7章 面向对象": {
+        single: [
+            { q: "定义类用", opt: ["class","def","import","new"], a: "A" },
+            { q: "构造方法是", opt: ["__init__","__main__","__str__","__del__"], a: "A" },
+            { q: "self代表", opt: ["类","对象","模块","函数"], a: "B" },
+            { q: "继承用", opt: ["class 子(父)","extends","inherits","derive"], a: "A" },
+            { q: "多态指方法______", opt: ["同名不同实现","同名同实现","不同名同实现","都不是"], a: "A" }
+        ],
+        blank: [
+            { q: "类是对象的______", a: "模板" },
+            { q: "对象是类的______", a: "实例" },
+            { q: "封装隐藏______", a: "实现" },
+            { q: "子类______父类方法", a: "重写" },
+            { q: "三大特性：封装、继承、______", a: "多态" }
+        ],
+        code: [
+            { q: "定义Student类含name属性", a: "class Student:def __init__(self,name):self.name=name" },
+            { q: "创建Student对象并输出name", a: "s=Student('张三');print(s.name)" }
+        ]
+    },
+    "第8章 GUI与turtle": {
+        single: [
+            { q: "Python内置GUI是", opt: ["tkinter","wxPython","PyQt","GTK"], a: "A" },
+            { q: "标签控件是", opt: ["Button","Label","Entry","Text"], a: "B" },
+            { q: "按钮控件是", opt: ["Label","Button","Canvas","Scale"], a: "B" },
+            { q: "turtle用于", opt: ["绘图","数据库","网络","计算"], a: "A" },
+            { q: "主循环是", opt: ["run()","loop()","mainloop()","start()"], a: "C" }
+        ],
+        blank: [
+            { q: "tkinter窗口用______", a: "Tk()" },
+            { q: "pack是______管理器", a: "布局" },
+            { q: "turtle.forward()______", a: "前进" },
+            { q: "turtle.circle()画______", a: "圆" },
+            { q: "事件绑定用______", a: "bind" }
+        ],
+        code: [
+            { q: "turtle画正方形", a: "import turtle;for i in range(4):turtle.fd(100);turtle.right(90)" },
+            { q: "tkinter创建窗口显示Hello", a: "import tkinter;tkinter.Label(text='Hello').pack();tkinter.mainloop()" }
+        ]
+    },
+    "第9章 数据库SQLite": {
+        single: [
+            { q: "Python内置数据库是", opt: ["MySQL","SQLite","Oracle","MongoDB"], a: "B" },
+            { q: "导入模块是", opt: ["sqlite3","mysql","db","sql"], a: "A" },
+            { q: "连接用", opt: ["connect","open","link","start"], a: "A" },
+            { q: "游标用", opt: ["cursor","point","index","key"], a: "A" },
+            { q: "提交事务用", opt: ["commit","save","write","push"], a: "A" }
+        ],
+        blank: [
+            { q: "创建表用______", a: "CREATE TABLE" },
+            { q: "插入数据用______", a: "INSERT" },
+            { q: "查询用______", a: "SELECT" },
+            { q: "删除表用______", a: "DROP TABLE" },
+            { q: "SQLite是______型数据库", a: "关系" }
+        ],
+        code: [
+            { q: "连接数据库并创建user表", a: "import sqlite3;c=sqlite3.connect('test.db');c.execute('CREATE TABLE user(id int)')" },
+            { q: "查询user表所有数据", a: "import sqlite3;c=sqlite3.connect('test.db');print(c.execute('SELECT * FROM user').fetchall())" }
+        ]
+    },
+    "第10章 异常处理": {
+        single: [
+            { q: "捕获异常用", opt: ["try-except","if-else","for-while","def-class"], a: "A" },
+            { q: "无论是否异常都执行", opt: ["else","finally","except","try"], a: "B" },
+            { q: "除零异常是", opt: ["ZeroDivisionError","IndexError","KeyError","TypeError"], a: "A" },
+            { q: "断言是", opt: ["assert","if","else","try"], a: "A" },
+            { q: "文件不存在异常", opt: ["FileNotFoundError","ValueError","NameError","SyntaxError"], a: "A" }
+        ],
+        blank: [
+            { q: "异常处理保证程序______", a: "健壮" },
+            { q: "else在无异常______", a: "执行" },
+            { q: "raise______异常", a: "抛出" },
+            { q: "语法错误异常______", a: "SyntaxError" },
+            { q: "类型错误异常______", a: "TypeError" }
+        ],
+        code: [
+            { q: "捕获1/0异常", a: "try:1/0;except:print('错误')" },
+            { q: "try-except-finally结构", a: "try:print();except:pass;finally:print('结束')" }
+        ]
+    },
+    "第11章 网络编程": {
+        single: [
+            { q: "TCP是______连接", opt: ["面向连接","无连接","广播","组播"], a: "A" },
+            { q: "UDP是______连接", opt: ["面向连接","无连接","可靠","有序"], a: "B" },
+            { q: "爬虫获取______", opt: ["网页数据","文件","数据库","图像"], a: "A" },
+            { q: "urllib.request用于", opt: ["打开URL","发送邮件","FTP","聊天"], a: "A" },
+            { q: "IP地址用于______", opt: ["定位主机","定位进程","加密","压缩"], a: "A" }
+        ],
+        blank: [
+            { q: "TCP/IP是______协议", a: "网络" },
+            { q: "端口标识______", a: "应用" },
+            { q: "requests用于______", a: "爬虫" },
+            { q: "socket用于______", a: "网络通信" },
+            { q: "HTTP是______协议", a: "超文本传输" }
+        ],
+        code: [
+            { q: "用urllib打开百度并读取", a: "import urllib.request;print(urllib.request.urlopen('https://www.baidu.com').read())" },
+            { q: "简单TCP客户端连接", a: "import socket;s=socket.socket();s.connect(('127.0.0.1',80))" }
+        ]
+    },
+    "第12章 数据处理": {
+        single: [
+            { q: "numpy用于", opt: ["数值计算","绘图","数据库","网络"], a: "A" },
+            { q: "pandas用于", opt: ["数据分析","绘图","加密","爬虫"], a: "A" },
+            { q: "matplotlib用于", opt: ["绘图","计算","数据库","GUI"], a: "A" },
+            { q: "DataFrame来自", opt: ["numpy","pandas","matplotlib","tkinter"], a: "B" },
+            { q: "plt.show()显示", opt: ["图表","文本","表格","窗口"], a: "A" }
+        ],
+        blank: [
+            { q: "numpy核心是______", a: "数组" },
+            { q: "pandas核心是______", a: "DataFrame" },
+            { q: "matplotlib.pyplot简称______", a: "plt" },
+            { q: "数据处理用于______", a: "分析" },
+            { q: "读取csv用______", a: "read_csv" }
+        ],
+        code: [
+            { q: "导入numpy创建数组", a: "import numpy as np;a=np.array([1,2,3]);print(a)" },
+            { q: "matplotlib画折线", a: "import matplotlib.pyplot as plt;plt.plot([1,2,3]);plt.show()" }
+        ]
+    }
+};
+
+// ====================== 全局变量 ======================
+let user = null;
+let currentChap = null;
+let scoreData = JSON.parse(localStorage.getItem("pythonScore")) || [];
+
+// 初始化章节列表
+const chapSel = document.getElementById("chap");
+Object.keys(examData).forEach((c,i) => {
+    const opt = document.createElement("option");
+    opt.value = c; opt.innerText = c;
+    chapSel.appendChild(opt);
+});
+
+// ====================== 登录 ======================
+function login(){
+    const name = document.getElementById("name").value.trim();
+    const sid = document.getElementById("sid").value.trim();
+    const cls = document.getElementById("cls").value.trim();
+    if(!name || !sid || !cls){alert("请填写完整信息");return;}
+    user = {name,sid,cls};
+    document.getElementById("user-info").innerText = `姓名：${name} 学号：${sid} 班级：${cls}`;
+    show("chapter");
+}
+
+// ====================== 切换界面 ======================
+function show(id){
+    document.querySelectorAll(".login-box,.chapter-box,.exam-box,.teacher-box")
+        .forEach(e=>e.classList.remove("active"));
+    document.getElementById(id).classList.add("active");
+}
+
+function logout(){user=null;show("login");}
+function showTeacher(){show("teacher");}
+function backLogin(){show("login");}
+
+// ====================== 开始考试 ======================
+function startExam(){
+    currentChap = chapSel.value;
+    const data = examData[currentChap];
+    const html = [];
+    html.push(`<h3>${currentChap} 测试题</h3>`);
+
+    // 单选（重构选项生成逻辑，避免排版问题）
+    html.push("<h4>一、单选题（每题5分）</h4>");
+    data.single.forEach((q,i)=>{
+        html.push(`<div class="question">`);
+        html.push(`<p>${i+1}. ${q.q}</p><div class="options">`);
+        // 循环生成选项，自动添加A/B/C/D前缀
+        q.opt.forEach((opt,j)=>{
+            const optLetter = "ABCD"[j];
+            html.push(`<div class="option">
+                <label>
+                    <input type="radio" name="s${i}" value="${optLetter}" data-opt="${opt}"> 
+                    ${optLetter}. ${opt}
+                </label>
+            </div>`);
+        });
+        html.push(`</div></div>`);
+    });
+
+    // 填空
+    html.push("<h4>二、填空题（每题5分）</h4>");
+    data.blank.forEach((q,i)=>{
+        html.push(`<div class="question"><p>${i+1}. ${q.q}</p>`);
+        html.push(`<input type="text" name="b${i}" placeholder="请输入答案"></div>`);
+    });
+
+    // 编程
+    html.push("<h4>三、编程题（每题25分）</h4>");
+    data.code.forEach((q,i)=>{
+        html.push(`<div class="question"><p>${i+1}. ${q.q}</p>`);
+        html.push(`<textarea name="c${i}" rows="4" cols="80" placeholder="请输入代码"></textarea></div>`);
+    });
+
+    document.getElementById("paper").innerHTML = html.join("");
+    document.getElementById("result").innerHTML = "";
+    show("exam");
+}
+
+// ====================== 交卷批阅（核心修复）======================
+function submitExam(){
+    const data = examData[currentChap];
+    let score = 0;
+    const ans = [];
+
+    // 单选批阅（修复识别逻辑 + 增加错误原因）
+    data.single.forEach((q,i)=>{
+        // 获取选中的单选按钮
+        const selectedRadio = document.querySelector(`input[name="s${i}"]:checked`);
+        const selectedValue = selectedRadio?.value;
+        const selectedOpt = selectedRadio?.dataset.opt || "未作答";
+        
+        // 获取正确选项的文本
+        const correctOptIndex = "ABCD".indexOf(q.a);
+        const correctOptText = q.opt[correctOptIndex] || "";
+
+        if(selectedValue === q.a){
+            score +=5; 
+            ans.push(`<span style="color:green">单选${i+1}: 正确</span>`);
+        } else {
+            // 详细的错误原因
+            let errorReason = "";
+            if(selectedValue === undefined){
+                errorReason = "未选择答案";
+            } else {
+                errorReason = `选择了${selectedValue}.${selectedOpt}，正确答案应为${q.a}.${correctOptText}`;
+            }
+            ans.push(`<span style="color:red">单选${i+1}: 错误 - ${errorReason}</span>`);
+        }
+    });
+
+    // 填空批阅（增加错误原因）
+    data.blank.forEach((q,i)=>{
+        const userAnswer = document.querySelector(`input[name="b${i}"]`).value.trim();
+        
+        if(userAnswer === q.a){
+            score +=5; 
+            ans.push(`<span style="color:green">填空${i+1}: 正确</span>`);
+        } else {
+            let errorReason = "";
+            if(userAnswer === ""){
+                errorReason = "未填写答案";
+            } else {
+                errorReason = `填写了"${userAnswer}"，正确答案应为"${q.a}"`;
+            }
+            ans.push(`<span style="color:red">填空${i+1}: 错误 - ${errorReason}</span>`);
+        }
+    });
+
+    // 编程批阅（优化关键词匹配 + 增加错误原因）
+    data.code.forEach((q,i)=>{
+        const userCode = document.querySelector(`textarea[name="c${i}"]`).value.trim();
+        // 标准化答案和用户输入（去除无关符号）
+        const standardAnswer = q.a.replace(/print|\(|\)|;| |\n/g,"").toLowerCase();
+        const standardUserCode = userCode.replace(/print|\(|\)|;| |\n/g,"").toLowerCase();
+
+        if(standardUserCode.includes(standardAnswer)){
+            score +=25; 
+            ans.push(`<span style="color:green">编程${i+1}: 正确</span>`);
+        } else {
+            let errorReason = "";
+            if(userCode === ""){
+                errorReason = "未编写代码";
+            } else {
+                errorReason = `代码不符合要求，参考答案：${q.a}`;
+            }
+            ans.push(`<span style="color:red">编程${i+1}: 错误 - ${errorReason}</span>`);
+        }
+    });
+
+    // 保存成绩
+    const record = {
+        ...user, chap:currentChap, score, time:new Date().toLocaleString()
+    };
+    scoreData.push(record);
+    localStorage.setItem("pythonScore", JSON.stringify(scoreData));
+
+    // 显示结果（优化排版）
+    document.getElementById("result").innerHTML = `
+        <p style="font-size:18px;margin-bottom:10px;">最终得分：${score} / 100</p>
+        <p style="font-weight:bold;margin-bottom:8px;">批阅详情：</p>
+        <div style="line-height:1.8;">${ans.join("<br>")}</div>
+    `;
+}
+
+// ====================== 教师查询 ======================
+function queryByName(){
+    const name = document.getElementById("qName").value.trim();
+    const list = scoreData.filter(s=>s.name === name);
+    showResult(list);
+}
+function queryByClass(){
+    const cls = document.getElementById("qCls").value.trim();
+    const list = scoreData.filter(s=>s.cls === cls);
+    showResult(list);
+}
+function showResult(list){
+    if(list.length===0){
+        document.getElementById("queryResult").innerHTML="<p style='color:red;'>无匹配成绩记录</p>";
+        return;
+    }
+    let html = `<p style="margin-bottom:10px;">共 ${list.length} 条匹配记录</p>`;
+    list.forEach(item=>{
+        html += `<div class="score-item">
+            ${item.time}｜${item.cls}｜${item.name}(${item.sid})｜${item.chap}｜<strong>${item.score}分</strong>
+        </div>`;
+    });
+    document.getElementById("queryResult").innerHTML = html;
+}
+</script>
+</body>
+</html>
